@@ -5,6 +5,7 @@ import { DynamicTemplateGallery } from '../components/studio/DynamicTemplateGall
 import { PanuTopNavbar } from '../components/nav/PanuTopNavbar';
 import { PanuShortsFeedPlayer } from '../components/feed/PanuShortsFeedPlayer';
 import { LiveFeed } from '../components/feed/LiveFeed';
+import { PanuBottomNav } from '../components/nav/PanuBottomNav';
 import { CinetPayRechargeModal } from '../components/payment/CinetPayRechargeModal';
 
 export interface FeedVideoPost {
@@ -1162,6 +1163,9 @@ export const HomePage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* BARRE DE NAVIGATION INFÉRIEURE AVEC BOUTON JAUNE + CENTRAL */}
+      <PanuBottomNav onOpenCreate={() => setShowPublishBox((prev) => !prev)} />
     </div>
   );
 };
