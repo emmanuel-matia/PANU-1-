@@ -129,11 +129,8 @@ fun StudioScreen(
         topBar = {
             Column {
                 PanuTopBar(
-                    title = "PANU Studio Créatif",
-                    subtitle = "Design Canva • Vidéo IA CapCut/Pixverse • Mode Hors-ligne",
                     canNavigateBack = onNavigateBack != null,
-                    onNavigateBack = { onNavigateBack?.invoke() },
-                    isFounder = isFounder
+                    onNavigateBack = { onNavigateBack?.invoke() }
                 )
                 Surface(
                     color = colors.emeraldSubtle,

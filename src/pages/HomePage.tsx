@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase, FOUNDER_EMAIL } from '../lib/supabaseClient';
+import { STORAGE_BUCKETS } from '../config/supabaseConfig';
 import { ShareButtonWithOpenGraph } from '../components/share/ShareButtonWithOpenGraph';
 import { DynamicTemplateGallery } from '../components/studio/DynamicTemplateGallery';
 import { PanuTopNavbar } from '../components/nav/PanuTopNavbar';
@@ -7,10 +8,11 @@ import { PanuShortsFeedPlayer } from '../components/feed/PanuShortsFeedPlayer';
 import { LiveFeed } from '../components/feed/LiveFeed';
 import { PanuBottomNav } from '../components/nav/PanuBottomNav';
 import { CinetPayRechargeModal } from '../components/payment/CinetPayRechargeModal';
+import { sendInstantGmailAlertToFounder } from '../services/securityModerationService';
 
 export interface FeedVideoPost {
   id: string;
-  author_id: string;
+  user_id: string;
   author_name?: string;
   author_avatar?: string;
   author_email?: string;
@@ -20,8 +22,7 @@ export interface FeedVideoPost {
   content: string;
   media_url: string;
   media_type: string;
-  status: string;
-  visibility: string;
+  is_public: boolean;
   likes_count?: number;
   comments_count?: number;
   created_at: string;
@@ -43,11 +44,26 @@ export interface PostComment {
  * 4. Boutons d'action rapide attractifs : Suivre, Cadeau, Studio IA, Booster.
  * 5. Respect strict des règles de sécurité financière et de l'en-tête sans la mention TikTok.
  */
-export const HomePage: React.FC = () => {
+export interface HomePageProps {
+  searchQuery?: string;
+}
+
+export const HomePage: React.FC<HomePageProps> = ({ searchQuery = '' }) => {
   const [posts, setPosts] = useState<FeedVideoPost[]>([]);
   const [userEmail, setUserEmail] = useState<string>('');
   const [userRole, setUserRole] = useState<'founder' | 'admin' | 'creator' | 'user'>('user');
   const [loading, setLoading] = useState(true);
+
+  // Filtrage des publications en temps réel selon la recherche
+  const filteredPosts = posts.filter(post => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      post.title.toLowerCase().includes(query) ||
+      post.content.toLowerCase().includes(query) ||
+      (post.author_name || '').toLowerCase().includes(query)
+    );
+  });
 
   // Onglet actif : [🔥 Pour vous] [📰 Fil Classique] [✨ Tendances] (sans le mot TikTok)
   const [activeTab, setActiveTab] = useState<'for_you' | 'classic' | 'trending'>('for_you');
@@ -96,22 +112,31 @@ export const HomePage: React.FC = () => {
   const fetchFeeds = async () => {
     setLoading(true);
     try {
-      const { data } = await supabase
+      // Requête Supabase réelle en temps réel demandée (is_public = true)
+      let query = supabase
         .from('posts')
         .select('*')
-        .eq('status', 'published')
-        .order('created_at', { ascending: false })
-        .limit(30);
+        .eq('is_public', true);
 
-      if (data && data.length > 0) {
-        const authorIds = Array.from(new Set(data.map((p) => p.author_id).filter(Boolean)));
+      if (activeTab === 'trending') {
+        query = query.order('likes_count', { ascending: false });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      const { data, error } = await query.limit(40);
+
+      if (error) throw error;
+
+      if (data) {
+        const userIds = Array.from(new Set(data.map((p) => p.user_id).filter(Boolean)));
         let profilesMap: Record<string, any> = {};
 
-        if (authorIds.length > 0) {
+        if (userIds.length > 0) {
           const { data: profiles } = await supabase
             .from('profiles')
-            .select('id, username, full_name, avatar_url, is_admin')
-            .in('id', authorIds);
+            .select('id, username, full_name, avatar_url')
+            .in('id', userIds);
 
           if (profiles) {
             profiles.forEach((pr) => {
@@ -120,52 +145,27 @@ export const HomePage: React.FC = () => {
           }
         }
 
-        // SÉCURITÉ ET MASKING DU FONDATEUR :
-        // Le profil d'Emmanuel Matia Mbundu (emmanuelmatia150@gmail.com) est 100% invisible dans la recherche, le fil et les suggestions
-        const cleanPosts = data.filter((p: any) => {
-          const authorId = (p.author_id || '').toLowerCase();
-          const authorEmail = (p.author_email || '').toLowerCase();
-          return (
-            !authorId.includes('founder') &&
-            !authorId.includes('emmanuel') &&
-            authorEmail !== FOUNDER_EMAIL.toLowerCase()
-          );
+        const enrichedPosts: FeedVideoPost[] = data.map((p: any) => {
+          const profile = profilesMap[p.user_id];
+          return {
+            ...p,
+            author_name: profile?.full_name || profile?.username || 'Créateur PANU',
+            author_avatar: profile?.avatar_url || '',
+            followers_count: 1250,
+            is_live: activeLiveHosts[p.user_id] || false,
+          };
         });
-
-        const enrichedPosts: FeedVideoPost[] = cleanPosts
-          .map((p: any) => {
-            const profile = profilesMap[p.author_id];
-            return {
-              ...p,
-              author_name: profile?.full_name || profile?.username || 'Créateur PANU',
-              author_avatar: profile?.avatar_url || '',
-              followers_count: 1250,
-              is_live: activeLiveHosts[p.author_id] || false,
-            };
-          })
-          .filter((p) => {
-            const nameLower = (p.author_name || '').toLowerCase();
-            return !nameLower.includes('emmanuel matia') && !nameLower.includes('emmanuelmatia');
-          });
 
         setPosts(enrichedPosts);
 
         const initialLikes: Record<string, number> = {};
-        const initialFollowers: Record<string, number> = {};
-
         enrichedPosts.forEach((p) => {
           initialLikes[p.id] = p.likes_count || 0;
-          initialFollowers[p.author_id] = p.followers_count || 450;
         });
-
         setPostLikesCount(initialLikes);
-        setCreatorsFollowersCount(initialFollowers);
-      } else {
-        setPosts([]);
       }
     } catch (err) {
-      console.error('Erreur chargement flux :', err);
-      setPosts([]);
+      console.error('Erreur chargement flux real-time:', err);
     } finally {
       setLoading(false);
     }
@@ -183,7 +183,6 @@ export const HomePage: React.FC = () => {
         }
       }
     });
-    fetchFeeds();
 
     // Raccordement temps réel direct à Supabase (PostgreSQL / Realtime)
     const postsChannel = supabase
@@ -201,6 +200,10 @@ export const HomePage: React.FC = () => {
       supabase.removeChannel(postsChannel);
     };
   }, []);
+
+  useEffect(() => {
+    fetchFeeds();
+  }, [activeTab]);
 
   const handleToggleLike = (postId: string) => {
     const isCurrentlyLiked = !!likedPosts[postId];
@@ -256,7 +259,7 @@ export const HomePage: React.FC = () => {
       let finalMediaUrl = newFeedUrl.trim();
       let mediaType = finalMediaUrl.endsWith('.mp4') ? 'video' : 'image';
 
-      // Téléversement direct dans le bucket Supabase Storage : post-media
+      // Téléversement direct dans le stockage sécurisé
       if (selectedUploadFile) {
         const fileExt = selectedUploadFile.name.split('.').pop() || 'mp4';
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
@@ -265,7 +268,7 @@ export const HomePage: React.FC = () => {
         mediaType = selectedUploadFile.type.startsWith('video') ? 'video' : 'image';
 
         const { error: uploadError } = await supabase.storage
-          .from('post-media')
+          .from(STORAGE_BUCKETS.POST_MEDIA)
           .upload(filePath, selectedUploadFile, {
             cacheControl: '3600',
             upsert: false,
@@ -273,22 +276,21 @@ export const HomePage: React.FC = () => {
 
         if (!uploadError) {
           const { data: publicUrlData } = supabase.storage
-            .from('post-media')
+            .from(STORAGE_BUCKETS.POST_MEDIA)
             .getPublicUrl(filePath);
           finalMediaUrl = publicUrlData.publicUrl;
         } else {
-          console.warn('Storage upload notice (post-media):', uploadError.message);
+          console.warn('Storage upload notice:', uploadError.message);
         }
       }
 
       const { data: newInsertedPost, error } = await supabase.from('posts').insert({
-        author_id: authorId,
+        user_id: authorId,
         title: newFeedTitle.trim(),
         content: newFeedTitle.trim(),
         media_url: finalMediaUrl || null,
         media_type: mediaType,
-        status: 'published',
-        visibility: 'public',
+        is_public: true,
       }).select().single();
 
       if (error) {
@@ -300,6 +302,14 @@ export const HomePage: React.FC = () => {
         setShowPublishBox(false);
         alert('🎉 Publication mise en ligne avec succès sur PANU !');
         fetchFeeds();
+
+        // Alerte Fondateur : Nouvelle Publication
+        sendInstantGmailAlertToFounder({
+          eventType: 'IMPORTANT_APP_EVENT',
+          subject: `🎬 [PANU] Nouvelle publication : ${newFeedTitle.trim().slice(0, 30)}`,
+          userIdentifier: userEmail || authorId,
+          details: `Un utilisateur vient de publier un nouveau contenu : "${newFeedTitle.trim()}" (ID: ${newInsertedPost.id}).`,
+        });
       }
     } catch (err: any) {
       alert(`Erreur : ${err?.message || 'Échec de la publication'}`);
@@ -309,16 +319,8 @@ export const HomePage: React.FC = () => {
   };
 
   return (
-    <div style={{ backgroundColor: '#0B0C12', color: '#F8F9FA', minHeight: '100vh' }}>
-      {/* 1. BARRE DE NAVIGATION UNIVERSELLE AVEC ACCÈS TEMPLATES */}
-      <PanuTopNavbar
-        onOpenTemplates={() => setShowTemplatesModal(true)}
-        onOpenFounderSettings={() => setShowFounderFinanceModal(true)}
-        userBalance={userCredits}
-        onBalanceUpdate={(newBal) => setUserCredits(newBal)}
-      />
-
-      <div style={{ maxWidth: 860, margin: '0 auto', padding: '12px 16px 90px' }}>
+    <div style={{ color: '#F8F9FA' }}>
+      <div style={{ maxWidth: 860, margin: '0 auto', padding: '12px 16px' }}>
         {/* 2. MESSAGE D'ACCUEIL DYNAMIQUE & TENDANCE VIRALE (ENGAGEMENT & RÉTENTION) */}
         <div
           style={{
@@ -522,7 +524,7 @@ export const HomePage: React.FC = () => {
           </div>
         </div>
 
-        {/* ESPACE DE NOUVELLE PUBLICATION (SUPABASE BUCKET: post-media) */}
+        {/* ESPACE DE NOUVELLE PUBLICATION (SÉCURISÉ) */}
         <div
           style={{
             backgroundColor: '#15161E',
@@ -652,7 +654,7 @@ export const HomePage: React.FC = () => {
           <div>
             <LiveFeed />
             <PanuShortsFeedPlayer
-              posts={posts}
+              posts={filteredPosts}
               onOpenTemplates={() => setShowTemplatesModal(true)}
               onOpenLiveMatch={() => {
                 window.location.href = '/live';
@@ -690,7 +692,7 @@ export const HomePage: React.FC = () => {
         ) : (
           /* FIL CLASSIQUE AVEC CARTES */
           <div style={{ display: 'grid', gap: 20 }}>
-            {posts.length === 0 ? (
+            {filteredPosts.length === 0 ? (
               <div
                 style={{
                   backgroundColor: '#15161F',
@@ -725,7 +727,7 @@ export const HomePage: React.FC = () => {
                 </button>
               </div>
             ) : (
-              posts.map((post) => (
+              filteredPosts.map((post) => (
                 <div
                   key={post.id}
                   style={{
@@ -1125,47 +1127,13 @@ export const HomePage: React.FC = () => {
         </div>
       )}
 
-      {showSuggestModal && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
-          <div style={{ backgroundColor: '#181922', border: '1px solid #FFF', borderRadius: 16, maxWidth: 440, width: '100%', padding: 20 }}>
-            <h3 style={{ margin: '0 0 8px', color: '#FFF' }}>🌟 Suggérer un Créateur</h3>
-            <p style={{ fontSize: 12, color: '#BBB', marginBottom: 14 }}>Recommandez un talent pour enrichir l’écosystème PANU.</p>
-            <input
-              type="text"
-              value={suggestInput}
-              onChange={(e) => setSuggestInput(e.target.value)}
-              placeholder="Nom ou @handle du créateur"
-              style={{ width: '100%', backgroundColor: '#0D0E12', border: '1px solid #444', padding: 10, borderRadius: 8, color: '#FFF', marginBottom: 12 }}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                const query = suggestInput.toLowerCase().trim();
-                if (!query) return;
-                // SÉCURITÉ ET MASKING DU FONDATEUR
-                if (query.includes('emmanuel') || query.includes('matia') || query.includes('mbundu') || query.includes('founder')) {
-                  alert("⚠️ Ce compte est réservé à l'administration de la plateforme et ne peut pas faire l'objet de suggestions publiques.");
-                  setSuggestInput('');
-                  setShowSuggestModal(false);
-                  return;
-                }
-                setShowSuggestModal(false);
-                setSuggestInput('');
-                alert(`Merci pour votre suggestion de "${suggestInput}" ! Elle a été transmise à l'équipe.`);
-              }}
-              style={{ width: '100%', backgroundColor: '#E5A93C', color: '#000', border: 'none', padding: 10, borderRadius: 8, fontWeight: 800, cursor: 'pointer', marginBottom: 8 }}
-            >
-              Envoyer la suggestion
-            </button>
-            <button type="button" onClick={() => { setShowSuggestModal(false); setSuggestInput(''); }} style={{ width: '100%', backgroundColor: 'transparent', border: '1px solid #444', color: '#FFF', padding: 8, borderRadius: 8, cursor: 'pointer' }}>
-              Annuler
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* BARRE DE NAVIGATION INFÉRIEURE AVEC BOUTON JAUNE + CENTRAL */}
-      <PanuBottomNav onOpenCreate={() => setShowPublishBox((prev) => !prev)} />
+      {/* MODALE RECHARGEMENT CINETPAY */}
+      <CinetPayRechargeModal
+        isOpen={showCinetPayModal}
+        onClose={() => setShowCinetPayModal(false)}
+        currentBalance={userCredits}
+        onSuccess={(added) => setUserCredits(prev => prev + added)}
+      />
     </div>
   );
 };

@@ -371,12 +371,7 @@ fun ActivityScreen(
     Scaffold(
         topBar = {
             PanuTopBar(
-                title = "Mes créations",
-                subtitle = "Gestion et galerie de vos contenus",
-                onMenuClick = onMenuClick,
-                isFounder = isFounder,
-                onFounderClick = onNavigateToFounder,
-                onSettingsClick = onNavigateToSettings
+                onMenuClick = onMenuClick ?: {}
             )
         },
         bottomBar = {

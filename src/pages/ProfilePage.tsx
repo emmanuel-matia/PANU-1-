@@ -47,7 +47,11 @@ export const ALL_PANU_CATEGORIES = [
  *    - Administrateurs : modération des contenus uniquement, SANS accès financier.
  *    - Fondateur (emmanuelmatia150@gmail.com) : vision globale des finances et base de données.
  */
-export const ProfilePage: React.FC = () => {
+export interface ProfilePageProps {
+  searchQuery?: string;
+}
+
+export const ProfilePage: React.FC<ProfilePageProps> = ({ searchQuery = '' }) => {
   const [userId, setUserId] = useState<string>('user_master');
   const [email, setEmail] = useState<string>(FOUNDER_EMAIL);
   const [fullName, setFullName] = useState<string>('Créateur PANU');
@@ -97,6 +101,18 @@ export const ProfilePage: React.FC = () => {
   });
 
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [userPosts, setUserPosts] = useState<any[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+
+  // Filtrage des publications du profil en temps réel
+  const filteredUserPosts = userPosts.filter(post => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      post.title.toLowerCase().includes(query) ||
+      (post.content || '').toLowerCase().includes(query)
+    );
+  });
 
   const isFounder = email.trim().toLowerCase() === FOUNDER_EMAIL.toLowerCase();
   const isAdmin = userRole === 'admin' || isFounder;
@@ -145,7 +161,52 @@ export const ProfilePage: React.FC = () => {
       }
     };
     loadProfile();
-  }, []);
+
+    // Raccordement temps réel direct à Supabase pour le profil
+    let postsChannel: any;
+
+    if (userId) {
+      postsChannel = supabase
+        .channel(`profile_posts_${userId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'posts', filter: `user_id=eq.${userId}` },
+          () => {
+            fetchUserPosts(userId);
+          }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      if (postsChannel) supabase.removeChannel(postsChannel);
+    };
+  }, [userId]);
+
+  const fetchUserPosts = async (uid: string) => {
+    setLoadingPosts(true);
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('user_id', uid)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        setUserPosts(data);
+      }
+    } catch (err) {
+      console.error('Erreur chargement posts profil:', err);
+    } finally {
+      setLoadingPosts(false);
+    }
+  };
+
+  useEffect(() => {
+    if (userId && userId !== 'user_master') {
+      fetchUserPosts(userId);
+    }
+  }, [userId]);
 
   // Gestion du sélecteur de catégories (Maximum 4)
   const toggleCategory = (cat: string) => {
@@ -213,9 +274,8 @@ export const ProfilePage: React.FC = () => {
   const netUsd = (privateTokensBalance * usdRate * 0.8).toFixed(2);
 
   return (
-    <div style={{ backgroundColor: '#0D0E12', color: '#FFF', minHeight: '100vh' }}>
-      <PanuTopNavbar />
-      <div style={{ padding: '16px 20px 80px', maxWidth: 720, margin: '0 auto' }}>
+    <div style={{ color: '#FFF', minHeight: '100vh' }}>
+      <div style={{ padding: '16px 20px', maxWidth: 720, margin: '0 auto' }}>
       {/* 1. COUVERTURE & AVATAR */}
       <div style={{ position: 'relative', marginBottom: 60 }}>
         <div
@@ -571,7 +631,7 @@ export const ProfilePage: React.FC = () => {
       </div>
 
       {/* 6. PARRAINAGE (+50 CRÉDITS) */}
-      <div style={{ backgroundColor: '#15161F', borderRadius: 14, border: '1px solid rgba(229, 169, 60, 0.3)', padding: 16 }}>
+      <div style={{ backgroundColor: '#15161F', borderRadius: 14, border: '1px solid rgba(229, 169, 60, 0.3)', padding: 16, marginBottom: 20 }}>
         <h3 style={{ margin: '0 0 6px', color: '#E5A93C', fontSize: 15 }}>🎁 Parrainage & Partage de lien</h3>
         <p style={{ margin: '0 0 10px', fontSize: 12, color: '#AAA' }}>Partagez votre code pour obtenir +50 crédits lors de chaque nouvelle inscription :</p>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0D0E12', padding: 10, borderRadius: 8 }}>
@@ -587,6 +647,65 @@ export const ProfilePage: React.FC = () => {
             Copier
           </button>
         </div>
+      </div>
+
+      {/* 7. MES PUBLICATIONS (FLUX RÉEL) */}
+      <div
+        style={{
+          backgroundColor: '#15161F',
+          borderRadius: 14,
+          border: '1px solid rgba(255, 255, 255, 0.12)',
+          padding: 16,
+          marginBottom: 100, // Espace pour la bottom nav
+        }}
+      >
+        <h3 style={{ margin: '0 0 14px', fontSize: 16, color: '#E5A93C' }}>🎥 Mes Publications</h3>
+
+        {loadingPosts ? (
+          <div style={{ textAlign: 'center', color: '#888', padding: '20px 0' }}>Chargement de vos créations...</div>
+        ) : filteredUserPosts.length === 0 ? (
+          <div style={{ textAlign: 'center', color: '#666', padding: '40px 0', border: '1px dashed #333', borderRadius: 10 }}>
+            <div style={{ fontSize: 30, marginBottom: 10 }}>🎬</div>
+            <p style={{ margin: 0 }}>Vous n'avez pas encore publié de contenu.</p>
+            <p style={{ fontSize: 11, marginTop: 4 }}>Vos vidéos et photos apparaîtront ici.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+            {filteredUserPosts.map((post) => (
+              <div
+                key={post.id}
+                style={{
+                  aspectRatio: '9/16',
+                  backgroundColor: '#000',
+                  borderRadius: 6,
+                  overflow: 'hidden',
+                  position: 'relative',
+                  border: '1px solid rgba(255,255,255,0.05)',
+                }}
+              >
+                {post.media_url ? (
+                  post.media_type === 'video' ? (
+                    <video
+                      src={post.media_url}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <img
+                      src={post.media_url}
+                      alt={post.title}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  )
+                ) : (
+                  <div style={{ padding: 10, fontSize: 10, color: '#AAA' }}>{post.title}</div>
+                )}
+                <div style={{ position: 'absolute', bottom: 4, left: 4, display: 'flex', alignItems: 'center', gap: 2, fontSize: 9, color: '#FFF', textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
+                  <span>❤️</span> {post.likes_count || 0}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Modale de sélection d'image */}

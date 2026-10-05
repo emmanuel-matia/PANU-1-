@@ -7,10 +7,8 @@ export const VodPage: React.FC = () => {
   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
 
   return (
-    <div style={{ backgroundColor: '#0D0E12', color: '#FFF', minHeight: '100vh' }}>
-      <PanuTopNavbar onOpenTemplates={() => setShowTemplatesModal(true)} />
-
-      <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 20px 80px' }}>
+    <div style={{ color: '#FFF', minHeight: '100vh' }}>
+      <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
           <div>
             <h1 style={{ color: '#E5A93C', margin: '0 0 6px', fontSize: 22 }}>

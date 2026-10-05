@@ -114,8 +114,6 @@ fun SupabaseSettingsScreen(
     Scaffold(
         topBar = {
             PanuTopBar(
-                title = "Paramètres",
-                subtitle = "Apparence & Connectivité",
                 canNavigateBack = true,
                 onNavigateBack = onNavigateBack
             )

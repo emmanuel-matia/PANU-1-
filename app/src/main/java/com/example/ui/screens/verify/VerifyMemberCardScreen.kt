@@ -122,8 +122,6 @@ fun VerifyMemberCardScreen(
     Scaffold(
         topBar = {
             PanuTopBar(
-                title = "Vérification Officielle",
-                subtitle = "Portail /verify/:cardNumber • QR Code & Puce NFC",
                 canNavigateBack = true,
                 onNavigateBack = onNavigateBack
             )

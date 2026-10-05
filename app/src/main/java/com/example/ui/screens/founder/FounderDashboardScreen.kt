@@ -124,21 +124,8 @@ fun FounderDashboardScreen(
     Scaffold(
         topBar = {
             PanuTopBar(
-                title = "PANU Founder",
-                subtitle = "Console de Contrôle Supabase",
                 canNavigateBack = true,
-                onNavigateBack = onNavigateBack,
-                onSettingsClick = onNavigateToSettings,
-                actions = {
-                    if (isFounder) {
-                        IconButton(
-                            onClick = { loadData() },
-                            modifier = Modifier.testTag("founder_refresh_btn")
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Actualiser", tint = colors.champagne)
-                        }
-                    }
-                }
+                onNavigateBack = onNavigateBack
             )
         },
         containerColor = colors.background

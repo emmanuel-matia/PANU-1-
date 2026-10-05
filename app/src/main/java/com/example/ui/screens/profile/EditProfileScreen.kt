@@ -205,12 +205,8 @@ fun EditProfileScreen(
     Scaffold(
         topBar = {
             PanuTopBar(
-                title = "Modifier mon profil",
-                subtitle = "Compte & Identité Supabase",
                 canNavigateBack = true,
-                onNavigateBack = onNavigateBack,
-                isFounder = isFounder,
-                onSettingsClick = onNavigateToSettings
+                onNavigateBack = onNavigateBack
             )
         },
         containerColor = colors.background

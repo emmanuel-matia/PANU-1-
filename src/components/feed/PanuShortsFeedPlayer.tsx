@@ -152,11 +152,11 @@ export const PanuShortsFeedPlayer: React.FC<PanuShortsFeedPlayerProps> = ({
   const feedItems: FeedVideoPost[] = posts;
   const currentPost = feedItems[currentIndex] || feedItems[0];
 
-  const authorId = currentPost.author_id;
-  const followers = creatorsFollowersCount[authorId] || currentPost.followers_count || 450;
+  const user_id = currentPost.user_id;
+  const followers = creatorsFollowersCount[user_id] || currentPost.followers_count || 450;
   const hasReached1k = followers >= 1000;
-  const isFollowing = !!followedCreators[authorId];
-  const isLiveActive = currentPost.is_live || activeLiveHosts[authorId] || false;
+  const isFollowing = !!followedCreators[user_id];
+  const isLiveActive = currentPost.is_live || activeLiveHosts[user_id] || false;
   const isLiked = !!likedPosts[currentPost.id];
   const likes = postLikesCount[currentPost.id] || currentPost.likes_count || 0;
   const comments = commentsMap[currentPost.id] || [];
@@ -664,7 +664,7 @@ export const PanuShortsFeedPlayer: React.FC<PanuShortsFeedPlayerProps> = ({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onToggleFollow(authorId, currentPost.author_email);
+                onToggleFollow(user_id, currentPost.author_email);
               }}
               style={{
                 position: 'absolute',
@@ -856,7 +856,7 @@ export const PanuShortsFeedPlayer: React.FC<PanuShortsFeedPlayerProps> = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onToggleFollow(authorId, currentPost.author_email);
+              onToggleFollow(user_id, currentPost.author_email);
             }}
             style={{
               backgroundColor: isFollowing ? 'rgba(255,255,255,0.2)' : '#E5A93C',

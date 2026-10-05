@@ -62,8 +62,6 @@ fun ForgotPasswordScreen(
     Scaffold(
         topBar = {
             PanuTopBar(
-                title = "PANU",
-                subtitle = "Récupération du compte",
                 canNavigateBack = true,
                 onNavigateBack = onNavigateBack
             )

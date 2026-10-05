@@ -221,12 +221,7 @@ fun ProfileScreen(
     Scaffold(
         topBar = {
             PanuTopBar(
-                title = "Mon profil",
-                subtitle = "Compte utilisateur PANU",
-                onMenuClick = onMenuClick,
-                isFounder = isFounder,
-                onFounderClick = onNavigateToFounder,
-                onSettingsClick = onNavigateToSettings
+                onMenuClick = onMenuClick ?: {}
             )
         },
         bottomBar = {

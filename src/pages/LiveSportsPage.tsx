@@ -393,15 +393,8 @@ export const LiveSportsPage: React.FC = () => {
   };
 
   return (
-    <div style={{ backgroundColor: '#0B0C12', color: '#FFF', minHeight: '100vh' }}>
-      {/* 1. TOP NAVBAR SANS BOUTON CADEAU CONFORME AU CAHIER DES CHARGES */}
-      <PanuTopNavbar
-        onOpenTemplates={() => setShowTemplatesModal(true)}
-        userBalance={userCoinsBalance}
-        onBalanceUpdate={(newBal) => setUserCoinsBalance(newBal)}
-      />
-
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '16px 18px 80px' }}>
+    <div style={{ color: '#FFF', minHeight: '100vh' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '16px 18px' }}>
         {/* TOAST MESSAGE */}
         {toastMessage && (
           <div

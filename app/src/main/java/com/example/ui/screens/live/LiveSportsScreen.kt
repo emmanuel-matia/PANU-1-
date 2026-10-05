@@ -49,6 +49,7 @@ import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import com.example.data.model.LiveGiftCatalogItem
 import com.example.data.remote.SupabasePanuFeaturesService
+import com.example.ui.components.PanuTopBar
 import com.example.ui.theme.PanuTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -185,41 +186,9 @@ private fun LiveStreamsViewerHub(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFFF3838))
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Matchs & Live Sports",
-                            fontWeight = FontWeight.Bold,
-                            color = colors.textPrimary
-                        )
-                    }
-                },
-                actions = {
-                    FilledTonalButton(
-                        onClick = onStartBroadcasting,
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = colors.champagne.copy(alpha = 0.2f),
-                            contentColor = colors.champagne
-                        ),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        modifier = Modifier.padding(end = 8.dp)
-                    ) {
-                        Icon(Icons.Default.Videocam, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Diffuser", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = colors.surface
-                )
+            PanuTopBar(
+                canNavigateBack = true,
+                onNavigateBack = { /* Action retour */ }
             )
         },
         floatingActionButton = {

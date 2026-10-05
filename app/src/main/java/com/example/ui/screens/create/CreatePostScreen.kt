@@ -389,13 +389,7 @@ fun CreatePostScreen(
 
     Scaffold(
         topBar = {
-            PanuTopBar(
-                title = "Créer",
-                subtitle = "Caméra, Galerie & Publication",
-                isFounder = isFounder,
-                onFounderClick = onNavigateToFounder,
-                onSettingsClick = onNavigateToSettings
-            )
+            PanuTopBar()
         },
         bottomBar = {
             PanuBottomNav(

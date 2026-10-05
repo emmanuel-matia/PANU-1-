@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { STORAGE_BUCKETS } from '../config/supabaseConfig';
 
 export interface SelectedMediaFile {
   file?: File;
@@ -188,13 +189,13 @@ export async function pickVideoFromPhoneGallery(): Promise<SelectedMediaFile> {
 
 /**
  * 4. TÉLÉVERSEMENT AUTOMATIQUE VERS SUPABASE STORAGE
- * Buckets supportés : avatars, covers, logos, post-media
+ * Buckets supportés configurés dans STORAGE_BUCKETS
  */
 export async function uploadMediaToSupabase(
   media: SelectedMediaFile,
-  bucket: 'avatars' | 'covers' | 'logos' | 'post-media',
+  bucket: string,
   userId: string,
-  category: 'avatar' | 'cover' | 'logo' | 'video'
+  category: string
 ): Promise<string> {
   const content = media.file || media.blob;
   if (!content) {
@@ -204,15 +205,9 @@ export async function uploadMediaToSupabase(
   const ext = media.type === 'video' ? 'mp4' : 'jpg';
   const fileName = `${userId}/${category}_${Date.now()}.${ext}`;
 
-  // Récupération de l'URL Supabase active
-  const activeSupabaseUrl =
-    (supabase as any).supabaseUrl ||
-    (typeof window !== 'undefined' && ((window as any).__SUPABASE_URL__ || (import.meta as any)?.env?.VITE_SUPABASE_URL)) ||
-    'https://xscnbjmiinznzepxzcvn.supabase.co';
-
-  console.log(`[PANU Storage] Upload en cours -> Bucket: '${bucket}' | Supabase URL: '${activeSupabaseUrl}' | Fichier: '${fileName}'`, {
+  // Logs de stockage sécurisés (sans URL de base de données)
+  console.log(`[PANU Storage] Upload en cours -> Bucket: '${bucket}' | Fichier: '${fileName}'`, {
     bucket,
-    supabaseUrl: activeSupabaseUrl,
     fileName,
     sizeBytes: content.size,
     mimeType: media.type === 'video' ? 'video/mp4' : 'image/jpeg'
@@ -224,33 +219,31 @@ export async function uploadMediaToSupabase(
   });
 
   if (error) {
-    console.error(`[PANU Storage] Échec upload bucket '${bucket}' sur '${activeSupabaseUrl}':`, error);
+    console.error(`[PANU Storage] Échec upload bucket '${bucket}':`, error.message);
 
-    // Si le bucket spécifique n'existe pas, fallback sur le bucket universel post-media
-    if (bucket !== 'post-media') {
-      console.warn(`[PANU Storage] Tentative de repli (fallback) sur le bucket 'post-media' sur '${activeSupabaseUrl}'...`);
-      const fallback = await supabase.storage.from('post-media').upload(fileName, content, {
+    // Si le bucket spécifique n'existe pas, fallback sur le stockage principal
+    if (bucket !== STORAGE_BUCKETS.POST_MEDIA) {
+      console.warn(`[PANU Storage] Tentative de repli (fallback) sur le stockage principal...`);
+      const fallback = await supabase.storage.from(STORAGE_BUCKETS.POST_MEDIA).upload(fileName, content, {
         upsert: true,
       });
       if (fallback.error) {
-        console.error(`[PANU Storage] Échec fallback sur bucket 'post-media':`, fallback.error);
+        console.error(`[PANU Storage] Échec fallback:`, fallback.error.message);
         throw new Error(
-          `Bucket '${bucket}' ou 'post-media' introuvable sur ${activeSupabaseUrl} (${fallback.error.message}). Créez le bucket public dans Supabase Storage.`
+          `Erreur de stockage. Veuillez vérifier votre connexion ou réessayer plus tard.`
         );
       }
-      const { data: publicData } = supabase.storage.from('post-media').getPublicUrl(fileName);
-      console.log(`[PANU Storage] Succès upload fallback -> Bucket: 'post-media' | URL: ${publicData.publicUrl}`);
+      const { data: publicData } = supabase.storage.from(STORAGE_BUCKETS.POST_MEDIA).getPublicUrl(fileName);
       return publicData.publicUrl;
     }
 
     const detailedErr = error.message?.includes('Bucket not found') || (error as any).statusCode === '404'
-      ? `Bucket '${bucket}' introuvable sur '${activeSupabaseUrl}' (404 NoSuchBucket). Créez le bucket public '${bucket}' dans le dashboard Supabase Storage.`
-      : `Échec upload Supabase Storage (Bucket: '${bucket}', URL: '${activeSupabaseUrl}') : ${error.message}`;
+      ? `Configuration de stockage introuvable. Veuillez contacter le support.`
+      : `Échec upload stockage : ${error.message}`;
 
     throw new Error(detailedErr);
   }
 
   const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(data.path);
-  console.log(`[PANU Storage] Upload RÉUSSI -> Bucket: '${bucket}' | URL publique: ${publicData.publicUrl}`);
   return publicData.publicUrl;
 }

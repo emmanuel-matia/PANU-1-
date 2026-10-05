@@ -127,25 +127,8 @@ fun PublicProfileScreen(
     Scaffold(
         topBar = {
             PanuTopBar(
-                title = "@$cleanUsername",
-                subtitle = "Profil Public PANU",
                 canNavigateBack = true,
-                onNavigateBack = onNavigateBack,
-                actions = {
-                    IconButton(
-                        onClick = {
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, "Découvrez le profil de @$cleanUsername sur PANU : panu.app/@$cleanUsername")
-                                type = "text/plain"
-                            }
-                            context.startActivity(Intent.createChooser(sendIntent, "Partager le profil"))
-                        },
-                        modifier = Modifier.testTag("public_profile_share_btn")
-                    ) {
-                        Icon(Icons.Default.Share, contentDescription = "Partager", tint = PanuGold)
-                    }
-                }
+                onNavigateBack = onNavigateBack
             )
         },
         containerColor = PanuObsidian

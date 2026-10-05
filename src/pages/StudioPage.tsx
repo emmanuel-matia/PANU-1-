@@ -2,15 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { MultiTrackTimeline } from '../components/studio/MultiTrackTimeline';
 import { StudioToolbar, StudioToolId, AspectRatioType, VideoAdjustments } from '../components/studio/StudioToolbar';
 import { VideoExportPanel } from '../components/studio/VideoExportPanel';
-import { PhotoAiStudio } from '../components/studio/PhotoAiStudio';
 import { DynamicTemplateGallery } from '../components/studio/DynamicTemplateGallery';
-import { PanuTopNavbar } from '../components/nav/PanuTopNavbar';
 import {
   getLocalStudioDrafts,
   initOfflinePwaAndAutoSync,
   OfflineStudioDraft,
-  saveDraftLocallyOfflineFirst,
-  syncPendingOfflineDraftsToSupabase,
 } from '../services/offlineSyncService';
 
 /**
@@ -22,7 +18,7 @@ import {
  * - Mode Gratuit & Mode Hors-ligne PWA avec synchronisation automatique Supabase
  */
 export const StudioPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'video' | 'photo' | 'templates' | 'drafts'>('video');
+  const [activeTab, setActiveTab] = useState<'editor' | 'templates' | 'drafts'>('editor');
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [drafts, setDrafts] = useState<OfflineStudioDraft[]>(() => getLocalStudioDrafts());
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
@@ -51,403 +47,224 @@ export const StudioPage: React.FC = () => {
     sharpness: 0,
   });
 
-  // Gestion du retour en ligne & synchronisation PWA
+  const mainModels = [
+    { label: 'Créer une image', icon: '🖼️' },
+    { label: 'Image en vidéo', icon: '🎬' },
+    { label: 'Texte en vidéo', icon: '📝' },
+    { label: 'MV en 1 clic', icon: '🎵' },
+  ];
+
+  const mainTools = [
+    { label: 'Générateur d\'effets', icon: '✨' },
+    { label: 'Synchro labiale', icon: '👄' },
+    { label: 'Modifier l\'image', icon: '🎨' },
+    { label: 'Transition', icon: '📽️' },
+    { label: 'Plus', icon: '➕' },
+  ];
+
+  const quickActions = [
+    { label: 'Retouche', icon: '✨' },
+    { label: 'Légendes automatiques', icon: '💬' },
+    { label: 'Téléprompteur', icon: '📜' },
+    { label: 'Appareil photo', icon: '📷' },
+    { label: 'Enregistrer audio', icon: '🎙️' },
+    { label: 'Prise d\'images', icon: '🖼️' },
+  ];
+
+  const aiTools = [
+    { label: 'Découpage automatique', icon: '✂️' },
+    { label: 'Affiche IA', icon: '🎨' },
+    { label: 'Photos de produits', icon: '🛍️' },
+  ];
+
+  const recents = [
+    { label: 'Collage', icon: '🖼️' },
+    { label: 'Éditeur photo', icon: '📸' },
+  ];
+
   useEffect(() => {
     initOfflinePwaAndAutoSync((syncedCount) => {
       setDrafts(getLocalStudioDrafts());
-      setSyncMessage(`🔄 ${syncedCount} projet(s) hors-ligne synchronisé(s) automatiquement avec Supabase !`);
+      setSyncMessage(`🔄 ${syncedCount} projet(s) hors-ligne synchronisé(s) !`);
     });
-
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
   }, []);
 
-  const handleTogglePlay = () => {
-    setIsPlaying(!isPlaying);
-  };
-
-  const handleAutoGenerateSubtitles = () => {
-    setIsGeneratingSubtitles(true);
-    setTimeout(() => {
-      setIsGeneratingSubtitles(false);
-      setSyncMessage('✅ Sous-titres IA générés et synchronisés sur la piste texte !');
-      setTimeout(() => setSyncMessage(null), 4000);
-    }, 1800);
-  };
-
-  const handleSplitCurrentClip = () => {
-    setSyncMessage(`✂️ Clip scindé avec succès à ${currentTime.toFixed(1)}s`);
-    setTimeout(() => setSyncMessage(null), 3000);
-  };
-
-  // Dimensions dynamiques selon le ratio vidéo sélectionné
-  const getCanvasDimensions = () => {
-    switch (aspectRatio) {
-      case '9:16': return { width: 230, height: 408 };
-      case '16:9': return { width: 440, height: 248 };
-      case '1:1': return { width: 320, height: 320 };
-      case '4:5': return { width: 260, height: 325 };
-      case '21:9': return { width: 460, height: 198 };
-      default: return { width: 240, height: 426 };
-    }
-  };
-
-  const canvasDim = getCanvasDimensions();
-
   return (
-    <div style={{ backgroundColor: '#0B0C12', color: '#F8F9FA', minHeight: '100vh' }}>
-      <PanuTopNavbar />
-      <div style={{ padding: '16px 20px 80px', maxWidth: 1400, margin: '0 auto' }}>
-      {/* En-tête statut & sélecteur des onglets principaux */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h1 style={{ margin: 0, fontSize: 22, color: '#E5A93C', fontWeight: 900 }}>
-              PANU STUDIO PRO
-            </h1>
-            <span
-              style={{
-                backgroundColor: isOnline ? 'rgba(46, 213, 115, 0.16)' : 'rgba(255, 71, 87, 0.16)',
-                border: isOnline ? '1px solid #2ED573' : '1px solid #FF4757',
-                color: isOnline ? '#2ED573' : '#FF4757',
-                padding: '3px 8px',
-                borderRadius: 999,
-                fontSize: 10,
-                fontWeight: 800,
-              }}
-            >
-              {isOnline ? '● EN LIGNE (CLOUD)' : '📴 HORS-LIGNE (LOCAL)'}
-            </span>
+    <div style={{ color: '#F8F9FA', minHeight: '100vh', backgroundColor: '#0B0C12' }}>
+      <div style={{ padding: '16px 20px', maxWidth: 1400, margin: '0 auto' }}>
+        
+        {/* HEADER STUDIO */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div>
+            <h1 style={{ fontSize: 24, fontWeight: 900, color: '#E5A93C', margin: 0 }}>STUDIO PANU IA</h1>
+            <p style={{ fontSize: 12, color: '#888', margin: '4px 0 0' }}>Éditeur Média & Intelligence Artificielle</p>
           </div>
-          <p style={{ margin: '4px 0 0', color: '#888F9E', fontSize: 12 }}>
-            Éditeur vidéo professionnel style CapCut • Multi-IA (Gemini, Claude, Fal.ai) & PWA locale
-          </p>
+          <div style={{ display: 'flex', gap: 10 }}>
+             <button 
+               onClick={() => setActiveTab('editor')}
+               style={{ backgroundColor: activeTab === 'editor' ? '#E5A93C' : '#1A1C28', color: activeTab === 'editor' ? '#000' : '#FFF', padding: '10px 20px', borderRadius: 10, fontWeight: 800, border: 'none', cursor: 'pointer', transition: '0.2s' }}
+             >
+               Éditeur
+             </button>
+             <button 
+               onClick={() => setActiveTab('templates')}
+               style={{ backgroundColor: activeTab === 'templates' ? '#E5A93C' : '#1A1C28', color: activeTab === 'templates' ? '#000' : '#FFF', padding: '10px 20px', borderRadius: 10, fontWeight: 800, border: 'none', cursor: 'pointer', transition: '0.2s' }}
+             >
+               Modèles
+             </button>
+          </div>
         </div>
 
-        {/* Bouton Exporter Direct */}
-        <button
-          type="button"
-          onClick={() => setShowExportModal(true)}
-          style={{
-            backgroundColor: '#E5A93C',
-            color: '#000',
-            border: 'none',
-            borderRadius: 10,
-            padding: '10px 18px',
-            fontWeight: 800,
-            fontSize: 13,
-            cursor: 'pointer',
-            boxShadow: '0 4px 14px rgba(229, 169, 60, 0.35)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <span>🚀</span>
-          <span>Paramètres d'Exportation</span>
-        </button>
-      </div>
+        {activeTab === 'editor' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: 24 }}>
+            {/* COLONNE GAUCHE : PREVIEW & TIMELINE */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* PREVIEW CANVAS */}
+              <div style={{ backgroundColor: '#11131B', borderRadius: 20, height: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #252838', position: 'relative', overflow: 'hidden' }}>
+                 <div style={{ width: 230, height: 400, backgroundColor: '#000', borderRadius: 12, border: '2px solid rgba(229, 169, 60, 0.4)', boxShadow: '0 0 30px rgba(0,0,0,0.5)' }}></div>
+                 <div style={{ position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(0,0,0,0.6)', padding: '4px 12px', borderRadius: 20, fontSize: 12 }}>1080p | 30 FPS</div>
+              </div>
 
-      {/* Onglets de navigation du Studio */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 8,
-          backgroundColor: '#12141D',
-          padding: 6,
-          borderRadius: 12,
-          border: '1px solid #222636',
-          marginBottom: 20,
-          overflowX: 'auto',
-        }}
-      >
-        {[
-          { key: 'video', label: '🎬 Éditeur Vidéo & Timeline (CapCut)', desc: 'Montage multi-pistes' },
-          { key: 'photo', label: '📸 Studio Photo & Marketing IA', desc: 'Détourage, E-Commerce' },
-          { key: 'templates', label: '🎨 Templates Prêts à l’Emploi', desc: 'Canva, Reels' },
-          { key: 'drafts', label: '💾 Projets & Brouillons Hors-ligne', desc: `${drafts.length} projet(s)` },
-        ].map((tab) => {
-          const isSelected = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key as any)}
-              style={{
-                flex: 1,
-                minWidth: 160,
-                padding: '10px 12px',
-                borderRadius: 8,
-                backgroundColor: isSelected ? '#E5A93C' : 'transparent',
-                color: isSelected ? '#000' : '#BBB',
-                border: 'none',
-                fontWeight: isSelected ? 800 : 600,
-                fontSize: 12,
-                cursor: 'pointer',
-                textAlign: 'center',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <div>{tab.label}</div>
-            </button>
-          );
-        })}
-      </div>
-
-      {syncMessage && (
-        <div style={{ marginBottom: 16, padding: 12, borderRadius: 10, backgroundColor: '#1A2E22', border: '1px solid #2ED573', color: '#2ED573', fontSize: 13, fontWeight: 700 }}>
-          {syncMessage}
-        </div>
-      )}
-
-      {/* 1. ONGLET : ÉDITEUR VIDÉO & TIMELINE MULTI-PISTES */}
-      {activeTab === 'video' && (
-        <div style={{ display: 'grid', gap: 18 }}>
-          {/* Zone de prévisualisation centrale Canvas + Fond stylé */}
-          <div
-            style={{
-              backgroundColor: '#11131B',
-              border: '1px solid #252838',
-              borderRadius: 18,
-              padding: 20,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: 460,
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            {/* Arrière-plan flou ou couleur */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: backgroundType === 'color' ? backgroundColor : '#0A0B10',
-                filter: backgroundType === 'blur' ? 'blur(30px)' : 'none',
-                opacity: 0.6,
-                backgroundImage:
-                  backgroundType === 'gradient'
-                    ? 'linear-gradient(135deg, #1A1C29 0%, #3A2B18 100%)'
-                    : 'none',
-              }}
-            />
-
-            {/* Canvas du Moniteur Vidéo avec le format sélectionné */}
-            <div
-              style={{
-                width: canvasDim.width,
-                height: canvasDim.height,
-                backgroundColor: '#000',
-                borderRadius: 12,
-                overflow: 'hidden',
-                position: 'relative',
-                boxShadow: '0 12px 36px rgba(0,0,0,0.8)',
-                border: '2px solid rgba(229, 169, 60, 0.4)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 2,
-              }}
-            >
-              {/* Vidéo / Image de simulation avec filtres appliqués */}
-              <img
-                src={
-                  coverImageUrl ||
-                  'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80'
-                }
-                alt="Player"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  filter: `brightness(${100 + adjustments.brightness}%) contrast(${
-                    100 + adjustments.contrast
-                  }%) saturate(${100 + adjustments.saturation}%)`,
-                }}
+              {/* TOOLBAR TIMELINE */}
+              <StudioToolbar
+                activeTool={activeTool}
+                onSelectTool={setActiveTool}
+                aspectRatio={aspectRatio}
+                onChangeAspectRatio={setAspectRatio}
+                adjustments={adjustments}
+                onChangeAdjustments={setAdjustments}
+                activeFilter={activeFilter}
+                onSelectFilter={setActiveFilter}
+                backgroundType={backgroundType}
+                backgroundColor={backgroundColor}
+                onChangeBackground={(t, v) => { setBackgroundType(t); setBackgroundColor(v); }}
+                onSelectCoverImage={() => {}}
+                onAutoGenerateSubtitles={() => {}}
+                onOpenTeleprompter={() => {}}
+                onOpenExportPanel={() => setShowExportModal(true)}
               />
 
-              {/* Incrustation Sous-titres Auto */}
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: 24,
-                  left: 12,
-                  right: 12,
-                  textAlign: 'center',
-                  backgroundColor: 'rgba(0, 0, 0, 0.65)',
-                  padding: '6px 10px',
-                  borderRadius: 6,
-                  color: '#FFD700',
-                  fontWeight: 900,
-                  fontSize: 13,
-                  textShadow: '0 2px 4px #000',
-                }}
-              >
-                🔥 "Créer du contenu viral en Afrique avec PANU Studio !"
-              </div>
-
-              {/* Badge Format */}
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 10,
-                  left: 10,
-                  backgroundColor: 'rgba(0,0,0,0.7)',
-                  color: '#E5A93C',
-                  padding: '2px 8px',
-                  borderRadius: 4,
-                  fontSize: 10,
-                  fontWeight: 800,
-                }}
-              >
-                {aspectRatio}
+              {/* TIMELINE */}
+              <div style={{ backgroundColor: '#15161E', borderRadius: 16, border: '1px solid #252838', padding: 12 }}>
+                <MultiTrackTimeline
+                  currentTime={currentTime}
+                  totalDuration={totalDuration}
+                  isPlaying={isPlaying}
+                  onSeek={setCurrentTime}
+                  onTogglePlay={() => setIsPlaying(!isPlaying)}
+                  onSplitCurrentClip={() => {}}
+                />
               </div>
             </div>
-          </div>
 
-          {/* Barre d'Outils de Montage CapCut */}
-          <StudioToolbar
-            activeTool={activeTool}
-            onSelectTool={setActiveTool}
-            aspectRatio={aspectRatio}
-            onChangeAspectRatio={setAspectRatio}
-            adjustments={adjustments}
-            onChangeAdjustments={setAdjustments}
-            activeFilter={activeFilter}
-            onSelectFilter={setActiveFilter}
-            backgroundType={backgroundType}
-            backgroundColor={backgroundColor}
-            onChangeBackground={(type, val) => {
-              setBackgroundType(type);
-              setBackgroundColor(val);
-            }}
-            coverImageUrl={coverImageUrl}
-            onSelectCoverImage={() => {
-              setCoverImageUrl('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80');
-              setSyncMessage('✅ Image de couverture mise à jour depuis la galerie !');
-              setTimeout(() => setSyncMessage(null), 3000);
-            }}
-            onAutoGenerateSubtitles={handleAutoGenerateSubtitles}
-            isGeneratingSubtitles={isGeneratingSubtitles}
-            onOpenTeleprompter={() => setActiveTab('photo')}
-            onOpenExportPanel={() => setShowExportModal(true)}
-          />
+            {/* COLONNE DROITE : ACTIONS RAPIDES & RÉCENTS */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {/* BOUTON NOUVEAU PROJET */}
+              <button 
+                onClick={() => {}}
+                style={{ width: '100%', backgroundColor: '#00D1FF', color: '#000', padding: '18px', borderRadius: 16, fontWeight: 900, fontSize: 18, border: 'none', cursor: 'pointer', boxShadow: '0 4px 15px rgba(0,209,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
+              >
+                <span>➕</span>
+                <span>Nouveau projet</span>
+              </button>
 
-          {/* Timeline Multi-Pistes Interactive */}
-          <MultiTrackTimeline
-            currentTime={currentTime}
-            totalDuration={totalDuration}
-            isPlaying={isPlaying}
-            onSeek={setCurrentTime}
-            onTogglePlay={handleTogglePlay}
-            onSplitCurrentClip={handleSplitCurrentClip}
-          />
-        </div>
-      )}
-
-      {/* 2. ONGLET : STUDIO PHOTO & MARKETING IA */}
-      {activeTab === 'photo' && <PhotoAiStudio />}
-
-      {/* 3. ONGLET : TEMPLATES DYNAMIQUES */}
-      {activeTab === 'templates' && <DynamicTemplateGallery />}
-
-      {/* 4. ONGLET : BROUILLONS & MODE HORS-LIGNE */}
-      {activeTab === 'drafts' && (
-        <div style={{ backgroundColor: '#141622', border: '1px solid #282C3D', borderRadius: 14, padding: 18 }}>
-          <h3 style={{ margin: '0 0 10px', color: '#E5A93C' }}>
-            💾 Projets Locaux en Cache PWA (Mode Gratuit & Hors-ligne)
-          </h3>
-          <p style={{ margin: '0 0 16px', fontSize: 13, color: '#AAA' }}>
-            Tous vos montages et brouillons sont sauvegardés localement dans le stockage sécurisé de votre navigateur et synchronisés automatiquement avec Supabase dès que vous retrouvez la connexion.
-          </p>
-
-          <div style={{ display: 'grid', gap: 10 }}>
-            {drafts.length === 0 ? (
-              <div style={{ padding: 20, textAlign: 'center', color: '#666', fontSize: 13 }}>
-                Aucun projet hors-ligne enregistré pour le moment.
-              </div>
-            ) : (
-              drafts.map((d) => (
-                <div
-                  key={d.id}
-                  style={{
-                    backgroundColor: '#1B1E2E',
-                    padding: 14,
-                    borderRadius: 10,
-                    border: '1px solid #2E3347',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 800, fontSize: 14, color: '#FFF' }}>{d.title}</div>
-                    <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
-                      Catégorie : {d.category} • Format : {d.exportFormat} • {new Date(d.updatedAt).toLocaleTimeString()}
-                    </div>
-                  </div>
-                  <span
-                    style={{
-                      backgroundColor: d.synced ? 'rgba(46, 213, 115, 0.15)' : 'rgba(229, 169, 60, 0.15)',
-                      color: d.synced ? '#2ED573' : '#E5A93C',
-                      padding: '4px 10px',
-                      borderRadius: 999,
-                      fontSize: 11,
-                      fontWeight: 700,
-                    }}
-                  >
-                    {d.synced ? '✓ Synchronisé' : '⏳ En attente de réseau'}
-                  </span>
+              {/* RÉCENTS */}
+              <div style={{ backgroundColor: '#15161E', padding: 20, borderRadius: 18, border: '1px solid #252838' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#EEE' }}>Récents</h3>
+                  <span style={{ fontSize: 11, color: '#00D1FF', cursor: 'pointer' }}>Voir tout</span>
                 </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
+                <div style={{ display: 'flex', gap: 14 }}>
+                  {recents.map(r => (
+                    <div key={r.label} style={{ textAlign: 'center', cursor: 'pointer', flex: 1 }}>
+                      <div style={{ height: 60, backgroundColor: '#1F2029', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, marginBottom: 8, border: '1px solid #2A2D3E' }}>{r.icon}</div>
+                      <div style={{ fontSize: 11, color: '#BBB' }}>{r.label}</div>
+                    </div>
+                  ))}
+                  <div style={{ flex: 1 }}></div>
+                </div>
+              </div>
 
-      {/* Modale d'Exportation Vidéo & Upscaling IA */}
-      {showExportModal && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.8)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            padding: 16,
-          }}
-          onClick={() => setShowExportModal(false)}
-        >
-          <div onClick={(e) => e.stopPropagation()}>
-            <VideoExportPanel
-              isOpen={showExportModal}
-              videoDurationSeconds={totalDuration}
-              onClose={() => setShowExportModal(false)}
-              onStartExport={(settings) => {
-                setSyncMessage(`🚀 Exportation ${settings.resolution} (${settings.framerate} FPS, ${settings.bitrateMbps} Mbit/s) lancée avec succès !`);
-                setShowExportModal(false);
-                setTimeout(() => setSyncMessage(null), 5000);
-              }}
-            />
+              {/* ACTIONS RAPIDES & OUTILS PRINCIPAUX */}
+              <div style={{ backgroundColor: '#15161E', padding: 20, borderRadius: 18, border: '1px solid #252838' }}>
+                <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: '#EEE' }}>Modèles Principaux</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 20 }}>
+                  {mainModels.map(m => (
+                    <div key={m.label} style={{ textAlign: 'center', cursor: 'pointer' }}>
+                      <div style={{ width: '100%', aspectRatio: '16/9', backgroundColor: '#1F2029', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, marginBottom: 6, border: '1px solid #2A2D3E' }}>{m.icon}</div>
+                      <div style={{ fontSize: 10, color: '#BBB', lineHeight: 1.2 }}>{m.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: '#EEE' }}>Outils Principaux</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                  {mainTools.map(t => (
+                    <div key={t.label} style={{ textAlign: 'center', cursor: 'pointer' }}>
+                      <div style={{ width: '100%', aspectRatio: '1/1', backgroundColor: '#1F2029', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, marginBottom: 6, border: '1px solid #2A2D3E' }}>{t.icon}</div>
+                      <div style={{ fontSize: 9, color: '#BBB', lineHeight: 1.2 }}>{t.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ACTIONS RAPIDES */}
+              <div style={{ backgroundColor: '#15161E', padding: 20, borderRadius: 18, border: '1px solid #252838' }}>
+                <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: '#EEE' }}>Actions rapides</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                  {quickActions.map(a => (
+                    <div key={a.label} style={{ textAlign: 'center', cursor: 'pointer' }}>
+                      <div style={{ width: '100%', aspectRatio: '1/1', backgroundColor: '#1F2029', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, marginBottom: 6, border: '1px solid #2A2D3E' }}>{a.icon}</div>
+                      <div style={{ fontSize: 10, color: '#BBB', lineHeight: 1.2 }}>{a.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* OUTILS IA */}
+              <div style={{ backgroundColor: '#15161E', padding: 20, borderRadius: 18, border: '1px solid #252838' }}>
+                <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: '#EEE' }}>Outils IA</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                  {aiTools.map(t => (
+                    <div key={t.label} style={{ textAlign: 'center', cursor: 'pointer' }}>
+                      <div style={{ width: '100%', aspectRatio: '1/1', backgroundColor: '#1F2029', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, marginBottom: 6, border: '1px solid #2A2D3E' }}>{t.icon}</div>
+                      <div style={{ fontSize: 10, color: '#BBB', lineHeight: 1.2 }}>{t.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* BOUTON EXPORTER HD/UHD */}
+              <button 
+                onClick={() => setShowExportModal(true)}
+                style={{ width: '100%', backgroundColor: 'transparent', color: '#E5A93C', padding: '14px', borderRadius: 14, fontWeight: 700, fontSize: 14, border: '1px solid #E5A93C', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              >
+                <span>🚀</span>
+                <span>Exporter en HD/UHD</span>
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {activeTab === 'templates' && <DynamicTemplateGallery />}
+        
+        {/* Modale d'Exportation */}
+        {showExportModal && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 20 }}>
+             <VideoExportPanel
+                videoDurationSeconds={totalDuration}
+                onClose={() => setShowExportModal(false)}
+                onStartExport={() => setShowExportModal(false)}
+             />
+          </div>
+        )}
+
+        {syncMessage && (
+          <div style={{ position: 'fixed', bottom: 100, left: '50%', transform: 'translateX(-50%)', backgroundColor: '#2ED573', color: '#000', padding: '10px 20px', borderRadius: 12, fontWeight: 800, fontSize: 13, zIndex: 1000, boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}>
+            {syncMessage}
+          </div>
+        )}
+
       </div>
     </div>
   );

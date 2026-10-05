@@ -1,23 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 
-const DEFAULT_SUPABASE_URL = 'https://xscnbjmiinznzepxzcvn.supabase.co';
-const DEFAULT_SUPABASE_KEY = 'sb_publishable_oiSjeHoC_1HnBPIUbfs_4g_dmwCUtyQ';
-
 const env = (import.meta as unknown as { env?: Record<string, string> }).env || {};
 
 const supabaseUrl =
-  env.NEXT_PUBLIC_SUPABASE_URL ||
   env.VITE_SUPABASE_URL ||
-  DEFAULT_SUPABASE_URL;
+  env.NEXT_PUBLIC_SUPABASE_URL ||
+  '';
 
 const supabaseAnonKey =
-  env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
   env.VITE_SUPABASE_ANON_KEY ||
-  DEFAULT_SUPABASE_KEY;
+  env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  '';
 
 // Cache mémoire ultra-léger (Stale-While-Revalidate) et timeout court pour connexions lentes (2G/3G)
 const fastGetCache = new Map<string, { timestamp: number; body: string; status: number; headers: [string, string][] }>();
-const CACHE_TTL_MS = 15000;
+const CACHE_TTL_MS = 2000;
 
 const ultraFastFetch: typeof fetch = async (input, init) => {
   const method = (init?.method || 'GET').toUpperCase();

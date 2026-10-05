@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.DynamicFeed
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoLibrary
@@ -64,71 +65,76 @@ import com.example.ui.navigation.PanuScreen
 import com.example.ui.theme.PanuEmerald
 import com.example.ui.theme.PanuTheme
 
+/**
+ * BARRE SUPÉRIEURE ÉPURÉE PANU (DESIGN STRICT)
+ * - Logo à gauche
+ * - Strictement 2 icônes à droite (Recherche et Menu)
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PanuTopBar(
-    title: String = "PANU",
-    subtitle: String? = "Imaginez. Créez. Publiez.",
-    canNavigateBack: Boolean = false,
-    onNavigateBack: () -> Unit = {},
+    onSearchClick: (() -> Unit)? = null,
     onMenuClick: (() -> Unit)? = null,
-    isFounder: Boolean = false,
-    onFounderClick: () -> Unit = {},
-    onSettingsClick: () -> Unit = {},
-    onTemplatesClick: (() -> Unit)? = null,
-    actions: @Composable () -> Unit = {}
+    canNavigateBack: Boolean = false,
+    onNavigateBack: () -> Unit = {}
 ) {
     val colors = PanuTheme.colors
 
     TopAppBar(
         title = {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Logo stylisé PANU
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(colors.champagne),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.sp
-                        ),
-                        color = colors.textPrimary
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    // Icône PWA / Réseau discrète et élégante
-                    Icon(
-                        imageVector = Icons.Default.CloudDone,
-                        contentDescription = "PWA Hors-ligne synchronisée",
-                        tint = Color(0xFF2ED573),
-                        modifier = Modifier.size(14.dp)
+                        text = "P",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
+                        color = colors.background
                     )
                 }
-                if (!subtitle.isNullOrBlank()) {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = colors.textSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "PANU",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.sp
+                    ),
+                    color = colors.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Visible
+                )
             }
         },
         navigationIcon = {
             if (canNavigateBack) {
-                IconButton(
-                    onClick = onNavigateBack,
-                    modifier = Modifier.testTag("nav_back_button")
-                ) {
+                IconButton(onClick = onNavigateBack) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Retour",
                         tint = colors.textPrimary
                     )
                 }
-            } else if (onMenuClick != null) {
-                IconButton(
-                    onClick = onMenuClick,
-                    modifier = Modifier.testTag("nav_menu_button")
-                ) {
+            }
+        },
+        actions = {
+            // RECHERCHE
+            if (onSearchClick != null) {
+                IconButton(onClick = onSearchClick) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Recherche",
+                        tint = colors.textPrimary
+                    )
+                }
+            }
+            // MENU HAMBURGER
+            if (onMenuClick != null) {
+                IconButton(onClick = onMenuClick) {
                     Icon(
                         imageVector = Icons.Default.Menu,
                         contentDescription = "Menu Principal",
@@ -136,35 +142,6 @@ fun PanuTopBar(
                     )
                 }
             }
-        },
-        actions = {
-            // Bouton 'Templates' universel accessible à tous les utilisateurs depuis la barre supérieure
-            IconButton(
-                onClick = { onTemplatesClick?.invoke() ?: onSettingsClick() },
-                modifier = Modifier.testTag("topbar_templates_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AutoAwesome,
-                    contentDescription = "Templates",
-                    tint = colors.champagne
-                )
-            }
-
-            // Menu secret des Paramètres Globaux réservé au Fondateur
-            if (isFounder) {
-                IconButton(
-                    onClick = onSettingsClick,
-                    modifier = Modifier.testTag("topbar_settings_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Paramètres Globaux Fondateur",
-                        tint = colors.textSecondary
-                    )
-                }
-            }
-
-            actions()
         },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = colors.background,

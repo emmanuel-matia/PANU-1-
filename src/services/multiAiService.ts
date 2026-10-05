@@ -1,10 +1,12 @@
 import { supabase } from '../lib/supabaseClient';
 import { AIProviderId, AITaskType } from '../config/aiKeysConfig';
+import { STORAGE_BUCKETS } from '../config/supabaseConfig';
+import { sendInstantGmailAlertToFounder } from './securityModerationService';
 
 export interface MultiAiGenerationRequest {
   task: AITaskType;
   prompt: string;
-  templateCategory?: 'canva_poster' | 'capcut_clip' | 'tiktok_script' | 'voucher_gift';
+  templateCategory?: 'canva_poster' | 'capcut_clip' | 'tiktok_script' | 'voucher_gift' | string;
   preferredProvider?: AIProviderId;
   modelOverride?: string;
 }
@@ -39,7 +41,7 @@ export async function generateWithMultiAiHub(
 
 /**
  * Publie en un clic le contenu généré depuis un Template dans le flux PANU
- * Téléversement direct dans le bucket Supabase Storage : post-media
+ * Téléversement direct dans le stockage sécurisé
  */
 export async function publishGeneratedTemplateToPanu(params: {
   userId: string;
@@ -47,20 +49,20 @@ export async function publishGeneratedTemplateToPanu(params: {
   content: string;
   mediaUrl?: string;
   blob?: Blob;
-  category: 'canva_poster' | 'capcut_clip' | 'tiktok_script' | 'voucher_gift';
+  category: string;
 }) {
   let finalMediaUrl = params.mediaUrl || null;
 
-  // Téléversement direct dans le bucket Supabase Storage : post-media
+  // Téléversement direct dans le stockage sécurisé
   if (params.blob) {
     try {
-      const isVideo = params.category === 'capcut_clip';
+      const isVideo = params.category.includes('clip') || params.category.includes('video');
       const fileExt = isVideo ? 'mp4' : 'png';
       const fileName = `template_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
       const filePath = `templates/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('post-media')
+        .from(STORAGE_BUCKETS.POST_MEDIA)
         .upload(filePath, params.blob, {
           contentType: isVideo ? 'video/mp4' : 'image/png',
           cacheControl: '3600',
@@ -69,33 +71,41 @@ export async function publishGeneratedTemplateToPanu(params: {
 
       if (!uploadError) {
         const { data: publicUrlData } = supabase.storage
-          .from('post-media')
+          .from(STORAGE_BUCKETS.POST_MEDIA)
           .getPublicUrl(filePath);
         finalMediaUrl = publicUrlData.publicUrl;
       } else {
-        console.warn('Notice upload bucket post-media:', uploadError.message);
+        console.warn('Notice upload bucket:', uploadError.message);
       }
     } catch (uploadErr) {
       console.warn('Erreur stockage media Supabase:', uploadErr);
     }
   }
 
-  const mediaType = params.category === 'capcut_clip' ? 'video' : 'image';
+  const mediaType = params.category.includes('clip') || params.category.includes('video') ? 'video' : 'image';
 
   const { data, error } = await supabase
     .from('posts')
     .insert({
-      author_id: params.userId,
+      user_id: params.userId,
       title: params.title,
       content: params.content,
       media_url: finalMediaUrl,
       media_type: mediaType,
-      status: 'published',
-      visibility: 'public',
+      is_public: true,
     })
     .select()
     .single();
 
   if (error) throw error;
+
+  // Alerte Fondateur : Nouveau Projet IA Publié
+  sendInstantGmailAlertToFounder({
+    eventType: 'IMPORTANT_APP_EVENT',
+    subject: `✨ [PANU STUDIO] Nouveau projet IA : ${params.title}`,
+    userIdentifier: params.userId,
+    details: `Un utilisateur vient de générer et publier un projet "${params.category}" intitulé "${params.title}".`,
+  });
+
   return data;
 }
